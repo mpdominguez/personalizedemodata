@@ -51,7 +51,7 @@ Parameters:
   InstanceAMI:
     Description: EC2 instance AMI for auto-scaling
     Type: String
-    Default: ami-059f8e2bf146b1e8f
+    Default: ami-0b898040803850657
     
   SnapshotArn:
     Description: ARN of the Public RDS Snapshot
@@ -308,6 +308,7 @@ Resources:
     
   LaunchConfig: 
     Type: AWS::AutoScaling::LaunchConfiguration
+    DependsOn: DbInstance
     Properties: 
       ImageId: !Ref InstanceAMI
       InstanceType: m4.xlarge
@@ -316,6 +317,18 @@ Resources:
       IamInstanceProfile: !Ref PersonalizeInstanceProfile
       SecurityGroups:
         - !Ref InstanceSecurityGroup
+      UserData:
+        Fn::Base64: 
+          Fn::Sub: |
+            #!/bin/bash
+            # export account id and region on instance startup
+            echo "DATABASE_URL=${DbInstance.Endpoint.Address}" >> /etc/profile
+            pip install django psycopg2-binary dj_database_url
+            cd ~
+            git clone https://github.com/mpdominguez/personalize-video-recs
+            cd ~/personalize-video-recs/videorecs/
+            echo "from django.contrib.auth.models import User; User.objects.create_superuser('admin', 'anyone@email.com', 'DoNotH@ckMe')" | python manage.py shell
+            ./runmyserver&
 
   PersonalizeEC2Role:
     Type: 'AWS::IAM::Role'
